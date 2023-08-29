@@ -21,8 +21,9 @@ import matplotlib.pyplot as plt
 
 from matplotlib.font_manager import FontProperties
 from matplotlib.offsetbox import AnchoredText
-from AYS_3D_figures import create_figure
-import AYS_3D_figures as ays_plot
+#from AYS_3D_figures import create_figure
+#import AYS_3D_figures as ays_plot
+from . import AYS_3D_figures as ays_plot
 import os
 
 SMALL_SIZE = 12
@@ -468,7 +469,7 @@ class AYS_Environment(Env):
         dt = 1
         sim_time_step = np.linspace(timeStart, self.dt, intSteps)
         if axes is None:
-            fig, ax3d = create_figure()
+            fig, ax3d = ays_plot.create_figure()
         else:
             ax3d = axes
         start_state = learning_progress[0][0]

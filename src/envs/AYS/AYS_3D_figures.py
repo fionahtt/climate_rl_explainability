@@ -13,8 +13,10 @@ import os, sys
 import functools as ft
 import heapq as hq
 
-import ays_model as ays
-import ays_general as ays_general
+#import ays_model as ays
+#import ays_general as ays_general
+from . import ays_model as ays
+from . import ays_general as ays_general
 
 AZIMUTH_FLOW, ELEVATION_FLOW = -140, 30
 AZIMUTH, ELEVATION = 5, 20

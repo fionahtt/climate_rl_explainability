@@ -9,7 +9,7 @@ from tqdm import tqdm
 from envs.AYS.AYS_Environment import *
 from learn import agents as ag
 from learn import utils
-from learn_class import Learn
+#from learn_class import Learn
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
