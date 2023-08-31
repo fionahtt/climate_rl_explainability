@@ -13,6 +13,11 @@ class PB_Learn(Learn):
     def __init__(self, **kwargs):
         super(PB_Learn, self).__init__(**kwargs)
 
+#added by fionahtt
+class PC_Learn(Learn):
+    def __init__(self, **kwargs):
+        super(PC_Learn, self).__init__(reward_type="policy_cost", **kwargs)
+        self.group_name = "Policy_Cost"
 
 class Noisy_Learn(Learn):
     def __init__(self, noise=1e-5, periodic_increase=500, markov=False, fixed_test=False, **kwargs):
