@@ -407,10 +407,22 @@ class Learn:
                 utils.feature_importance(agent_net, self.samples, samples, v, scalar=False)
             else:
                 agent_net = self.agent.critic
-                utils.feature_importance(agent_net, self.samples, samples, v, scalar=True)
+                utils.feature_importance(agent_net, self.samples, samples, v, scalar=True)                              
         else:
             agent_net = self.agent.target_net
             utils.feature_importance(agent_net, self.samples, samples, v)
+
+    # @fionahtt 
+    # currently specifically for DQN agents       
+    def explainability_plots(self, samples, v=False, 
+                             bar = True, summary = True):
+        #sample states from environment until it reaches at least samples * 4
+        self.sample_states(samples * 4)
+
+        # EDIT THIS: change to policy net?
+        agent_net = self.agent.policy_net
+        utils.SHAP_plots(agent_net, self.samples, samples, v, 
+                         bar = bar, summary = summary)
 
     def plot_trajectory(self, colour, start_state=None, steps=600, fname=None, axes=None, fig=None):
         """To plot trajectories of the agent"""

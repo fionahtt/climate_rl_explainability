@@ -1,4 +1,4 @@
-# @Theodore Wolf
+# @Theodore Wolf, @fionahtt
 
 import numpy as np
 import random
@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 
 class ReplayBuffer:
     """To store experience for uncorrelated learning"""
@@ -198,10 +197,54 @@ def feature_importance(agent_net, buffer, n_points, v=False, scalar=False):
     else:
         shap_values = np.array(np.sum(shap_q_values, axis=0))
     shap.summary_plot(shap_values,
-                        features=data,
-                        feature_names=features,
-                        plot_type='violin', show=False, sort=False)
+                      features=data,
+                      feature_names=features,
+                      plot_type='violin', show=False, sort=False)
 
+# @fionahtt
+# currently specifically for DQN agents
+def SHAP_plots(agent_net, buffer, n_points, v=False, 
+               summary = True, bar = True):
+    features = ["A", "Y", "S"]
+    if v:
+        features = ["A", "Y", "S", "dA", "dY", "dS"]
+
+    data = buffer.sample(n_points)[0]
+
+    explainer = shap.DeepExplainer(agent_net,
+                                   torch.from_numpy(data).float().to(DEVICE))
+    shap_q_values = explainer.shap_values(torch.from_numpy(data).float().to(DEVICE))
+
+    """
+    # test of Q-values
+    print(shap_q_values[0][0])
+    print(shap_q_values[1][0])
+    print(shap_q_values[2][0])
+    print(shap_q_values[3][0])
+    """
+
+    #working with Q-values SHAP instead of state values SHAP
+    shap_values = shap_q_values
+
+    if bar:
+        plot_bar(shap_values, data, features)
+
+    if summary:
+        plot_summary(shap_values[0], data, features)
+
+# @fionahtt
+def plot_summary(shap_values, data, features):
+    shap.summary_plot(shap_values,
+                      features=data,
+                      feature_names=features,
+                      plot_type='violin', sort=False)
+
+# @fionahtt
+def plot_bar(shap_values, data, features):
+    shap.summary_plot(shap_values,
+                      features=data,
+                      feature_names=features,
+                      plot_type='bar', sort=False)
 
 def plot_end_state_matrix(results):
     t = 1 # alpha value
