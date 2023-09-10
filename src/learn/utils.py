@@ -301,7 +301,8 @@ def plot_bar(shap_values, data, features, actions):
                       features=data,
                       feature_names=features,
                       class_names = actions,
-                      plot_type='bar', sort=False)
+                      plot_type='bar', sort=False, 
+                      plot_size = (8, 5))
     
 def plot_dependence(feature, shap_values, data, features):
     shap.dependence_plot(feature,
