@@ -38,7 +38,7 @@ class Net(nn.Module):
     def forward(self, obs):
         l = self.layer(obs)
         q_values = self.q(l)
-
+        
         return q_values
 
 

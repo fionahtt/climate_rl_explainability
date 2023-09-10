@@ -13,7 +13,7 @@ class PB_Learn(Learn):
     def __init__(self, **kwargs):
         super(PB_Learn, self).__init__(**kwargs)
 
-#added by fionahtt
+# @fionahtt
 class PC_Learn(Learn):
     def __init__(self, **kwargs):
         super(PC_Learn, self).__init__(reward_type="policy_cost", **kwargs)

@@ -72,16 +72,26 @@ class DQN:
             net = nets.Net(s_dim, a_dim)
         return net
 
+
+    # @fionahtt
+    # modified get_action function for critical states experiment
+    # specifically for sample_state function in learn_class.py
+    # when get_Q=True, also return Q-values
+    # get_Q=True only when get_action used within explainability_plots
+
     @torch.no_grad()
-    def get_action(self, state: np.ndarray, testing=False):
+    def get_action(self, state: np.ndarray, testing=False, get_Q=False):
         """We select actions according to epsilon-greedy policy"""
         self.t += 1
         if np.random.uniform() > self.epsilon(self.t) or testing:
             q_values = self.policy_net(torch.Tensor(state).to(DEVICE)).cpu().numpy()
+            if get_Q:
+                # get q_values as well
+                return np.argmax(q_values), q_values
             return np.argmax(q_values)
         else:
             return np.random.choice(self.action_size)
-
+        
     def update(self, batch_sample, weights=None):
         """To update our networks"""
         # Unpack batch: 5-tuple

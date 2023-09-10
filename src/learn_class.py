@@ -414,15 +414,15 @@ class Learn:
 
     # @fionahtt 
     # currently specifically for DQN agents       
-    def explainability_plots(self, samples, v=False, 
-                             bar = True, summary = True):
+    def explainability_experiments(self, samples, v=False, 
+                             bar=True, summary=True, dependence=True):
         #sample states from environment until it reaches at least samples * 4
-        self.sample_states(samples * 4)
+        _ , q_values, actions = self.sample_states(samples * 4, get_Q = True)
 
-        # EDIT THIS: change to policy net?
-        agent_net = self.agent.policy_net
-        utils.SHAP_plots(agent_net, self.samples, samples, v, 
-                         bar = bar, summary = summary)
+        # target_net instead of policy_net
+        agent_net = self.agent.target_net
+        utils.explainability_plots(agent_net, self.samples, samples, q_values, 
+                                   actions, v, bar, summary, dependence)
 
     def plot_trajectory(self, colour, start_state=None, steps=600, fname=None, axes=None, fig=None):
         """To plot trajectories of the agent"""
@@ -448,21 +448,38 @@ class Learn:
         # fig, axes = self.env.plot_run(learning_progress, fig=fig, axes=axes, fname=fname,colour=colour )
 
         return actions, rewards
+    
+    # @fionahtt
+    # modified for critical state experiment
+    # when get_Q=True, also return Q-values and action chosen (for later use)
+    # get_Q=True only when sample_states called in explainability_plots
 
-    def sample_states(self, samples):
+    def sample_states(self, samples, get_Q = False):
         """Sample states from the environment"""
         self.samples = utils.ReplayBuffer(int(1e6))
+        all_q_values = []
+        actions = []
+
         while len(self.samples) < samples:
             state = self.env.reset()
             done = False
             while not done:
-                action = self.agent.get_action(state, testing=True)
+                if get_Q:
+                    action, q_values = self.agent.get_action(state, 
+                                                             testing = True,
+                                                             get_Q = True)
+                    actions.append(action)
+                    all_q_values.append(q_values)
+                else:
+                    action = self.agent.get_action(state, testing = True)
+
                 next_state, reward, done, _ = self.env.step(action)
                 self.samples.push(state, action, reward, next_state, done)
                 state = next_state
 
+        if get_Q:
+            return self.samples, all_q_values, actions
         return self.samples
-
 
 if __name__ == "__main__":
     a = 1

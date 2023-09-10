@@ -8,6 +8,9 @@ import shap
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
+from collections import defaultdict
+from scipy import stats
+
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class ReplayBuffer:
@@ -28,8 +31,19 @@ class ReplayBuffer:
         batch = random.sample(self.buffer, batch_size)
         state, action, reward, next_state, done = map(np.stack, zip(*batch))
         return state, action, reward, next_state, done
+    
+    # @fionahtt
+    # modified sample function
+    # returns the state and indices used to sample from buffer
+    # for critical states experiment in explainability function
 
-    def __len__(self):
+    def sample_with_indices(self, batch_size):
+        indices = random.sample(range(len(self.buffer)), batch_size)
+        batch = [self.buffer[i] for i in indices]
+        state, action, reward, next_state, done = map(np.stack, zip(*batch))
+        return state, indices
+
+    def __len__(self):  
         return len(self.buffer)
 
 
@@ -203,13 +217,38 @@ def feature_importance(agent_net, buffer, n_points, v=False, scalar=False):
 
 # @fionahtt
 # currently specifically for DQN agents
-def SHAP_plots(agent_net, buffer, n_points, v=False, 
-               summary = True, bar = True):
+def explainability_plots(agent_net, buffer, n_points, q_values, actions, 
+                         v=False, bar=True, summary=True, dependence=True):
+    actions_names = ["default", "DG", "ET", "DG+ET"]
+    
+    data, indices = buffer.sample_with_indices(n_points)
+
+    SHAP_plots(agent_net, data, actions_names, v, bar, summary, dependence)
+    
+    #Q-values and actions corresponding with sampled states
+    sampled_q_values = [q_values[i] for i in indices]
+    sampled_actions = [actions[i] for i in indices]
+    
+    #names of actions selected
+    sampled_actions_names = [actions_names[i] for i in sampled_actions]
+
+    # Q-value difference calculations
+    # for each sample, difference between max Q-value and average of Q-values
+    max_q_values = [sampled_q_values[i][sampled_actions[i]] 
+                    for i in range(len(sampled_actions))]
+    avg_q_values = np.array(np.sum(sampled_q_values, axis=1))/4
+    q_differences = max_q_values - avg_q_values
+
+    plot_Q_differences(q_differences, sampled_actions_names)
+
+    p_value = critical_states_test(q_differences, sampled_actions_names)
+    print(p_value)
+
+def SHAP_plots(agent_net, data, actions, v=False, 
+               bar=True, summary=True, dependence=True):
     features = ["A", "Y", "S"]
     if v:
         features = ["A", "Y", "S", "dA", "dY", "dS"]
-
-    data = buffer.sample(n_points)[0]
 
     explainer = shap.DeepExplainer(agent_net,
                                    torch.from_numpy(data).float().to(DEVICE))
@@ -225,26 +264,97 @@ def SHAP_plots(agent_net, buffer, n_points, v=False,
 
     #working with Q-values SHAP instead of state values SHAP
     shap_values = shap_q_values
+    #average of SHAP values of 4 Q-values
+    avg_shap_values = np.array(np.sum(shap_q_values, axis=0))/4
 
     if bar:
-        plot_bar(shap_values, data, features)
+        plot_bar(shap_values, data, features, actions)
 
     if summary:
-        plot_summary(shap_values[0], data, features)
+        #use all Q-values vs use one Q-value vs use avg of Q-values?
+        plot_summary(avg_shap_values, data, features)
+        #plot_summary(shap_values[0], data, features)
+        #plot_summary(shap_values[1], data, features)
+        #plot_summary(shap_values[2], data, features)
+        #plot_summary(shap_values[3], data, features)
+        #plot_summary(avg_shap_values, data, features)
 
-# @fionahtt
+    if dependence:
+        plot_dependence("A", avg_shap_values, data, features)
+        plot_dependence("Y", avg_shap_values, data, features)
+        plot_dependence("S", avg_shap_values, data, features)
+
+    """
+    if force:
+        base_value = explainer.expected_value[0]
+        plot_force(base_value, shap_values[0][0], data[0], features)
+    """
+
 def plot_summary(shap_values, data, features):
     shap.summary_plot(shap_values,
                       features=data,
                       feature_names=features,
                       plot_type='violin', sort=False)
 
-# @fionahtt
-def plot_bar(shap_values, data, features):
+def plot_bar(shap_values, data, features, actions):
     shap.summary_plot(shap_values,
                       features=data,
                       feature_names=features,
+                      class_names = actions,
                       plot_type='bar', sort=False)
+    
+def plot_dependence(feature, shap_values, data, features):
+    shap.dependence_plot(feature,
+                         shap_values = shap_values,
+                         features = data,
+                         feature_names = features,
+                         interaction_index = None)
+    
+def plot_force(base_value, shap_values, data, features):
+    shap.force_plot(base_value,
+                    shap_values=shap_values,
+                    features=data,
+                    feature_names=features)
+
+def plot_Q_differences(q_differences, sampled_actions_names):
+    colours = {'default': 'red', 'DG': 'green', 
+               'ET': 'blue', 'DG+ET': 'purple'}
+    x_values = np.arange(len(q_differences))
+
+    plt.figure(figsize=(20, 10))
+    plt.bar(x_values, q_differences, 
+            color=[colours[name] for name in sampled_actions_names])
+    
+    legend_labels = list(colours.keys())
+    legend_handles = [plt.Rectangle((0, 0), 1, 1, color=colours[label]) 
+                      for label in legend_labels]
+    plt.legend(legend_handles, legend_labels, title="Actions")
+
+    plt.xlabel("Sampled States")
+    plt.ylabel("Difference")
+    plt.title("Max Q-value - Averaged Q-values for Sampled States")
+    plt.show()
+
+def critical_states_test(q_differences, sampled_actions_names):
+
+    q_diffs_groups = defaultdict(list)
+    for q, action_name in zip(q_differences, sampled_actions_names):
+        q_diffs_groups[action_name].append(q)
+
+    q_diffs_by_action = {action: values for action, 
+                         values in q_diffs_groups.items()}
+    
+    """
+    # comparison of all actions that aren't hypothesised great difference action
+    # check if p-value is higher
+    if 'DG+ET' in q_diffs_by_action:
+        del q_diffs_by_action['DG+ET']
+    """
+
+    f_statistic, p_value = stats.f_oneway(*q_diffs_by_action.values())
+
+    return p_value
+
 
 def plot_end_state_matrix(results):
     t = 1 # alpha value
