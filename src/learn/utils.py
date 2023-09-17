@@ -241,8 +241,9 @@ def explainability_plots(agent_net, buffer, n_points, q_values, actions,
 
     plot_Q_differences(q_differences, sampled_actions_names)
 
-    p_value = critical_states_test(q_differences, sampled_actions_names)
-    print(p_value)
+    p_values = critical_states_tests(q_differences, sampled_actions_names)
+    print("One-sample ANOVA test p-value: " + str(p_values["ANOVA"]))
+    print("One-sample t-test p-value: " + str(p_values["t-test"]))
 
 def SHAP_plots(agent_net, data, actions, v=False, 
                bar=True, summary=True, dependence=True):
@@ -332,30 +333,37 @@ def plot_Q_differences(q_differences, sampled_actions_names):
     plt.legend(legend_handles, legend_labels, title="Actions")
 
     plt.xlabel("Sampled States")
-    plt.ylabel("Difference")
-    plt.title("Max Q-value - Averaged Q-values for Sampled States")
+    plt.ylabel("Q-Difference")
+    plt.title("Q-Differences for Sampled States")
     plt.show()
 
-def critical_states_test(q_differences, sampled_actions_names):
+def critical_states_tests(q_differences, sampled_actions_names):
+    p_values = {}
 
+    #make dictionary of q-difference values grouped by action taken
     q_diffs_groups = defaultdict(list)
     for q, action_name in zip(q_differences, sampled_actions_names):
         q_diffs_groups[action_name].append(q)
-
     q_diffs_by_action = {action: values for action, 
                          values in q_diffs_groups.items()}
     
-    """
-    # comparison of all actions that aren't hypothesised great difference action
-    # check if p-value is higher
-    if 'DG+ET' in q_diffs_by_action:
-        del q_diffs_by_action['DG+ET']
-    """
+    # for t-test
+    # compare mean of action group with highest q-diff with overall mean
+    # action group w highest q-diff has most critical states
+    # (typically true, true in all these critical state plots)
+    q_diff_mean = q_differences.mean()
+    max_action = sampled_actions_names[np.argmax(q_differences)]
+    q_diffs_max_action = q_diffs_by_action[max_action]
 
-    f_statistic, p_value = stats.f_oneway(*q_diffs_by_action.values())
+    #one-sample ANOVA test
+    f_statistic, p_value_ANOVA = stats.f_oneway(*q_diffs_by_action.values())
+    p_values["ANOVA"] = p_value_ANOVA
 
-    return p_value
+    #one-sample t-test
+    t_statistic, p_value_t = stats.ttest_1samp(q_diffs_max_action, q_diff_mean)
+    p_values["t-test"] = p_value_t
 
+    return p_values
 
 def plot_end_state_matrix(results):
     t = 1 # alpha value
