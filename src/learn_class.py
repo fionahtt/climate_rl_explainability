@@ -453,12 +453,17 @@ class Learn:
     # modified for critical state experiment
     # when get_Q=True, also return Q-values and action chosen (for later use)
     # get_Q=True only when sample_states called in explainability_plots
+    # also modified to get testing success rates
 
     def sample_states(self, samples, get_Q = False):
         """Sample states from the environment"""
         self.samples = utils.ReplayBuffer(int(1e6))
         all_q_values = []
         actions = []
+
+        episodes = 0
+        green_final_state = 0
+        green_black_final_state = 0
 
         while len(self.samples) < samples:
             state = self.env.reset()
@@ -476,6 +481,18 @@ class Learn:
                 next_state, reward, done, _ = self.env.step(action)
                 self.samples.push(state, action, reward, next_state, done)
                 state = next_state
+
+            # to get success rates for testing
+            episodes += 1
+            final_state = self.env.which_final_state().name
+            if final_state == "GREEN_FP":
+                green_final_state += 1
+                green_black_final_state += 1
+            elif final_state == "BLACK_FP":
+                green_black_final_state += 1
+
+        print("Success rate: " + str(green_final_state/episodes))
+        print("Success rate (counting BLACK_FP): " + str(green_black_final_state/episodes))
 
         if get_Q:
             return self.samples, all_q_values, actions
