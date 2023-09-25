@@ -360,7 +360,8 @@ def critical_states_tests(q_differences, sampled_actions_names):
     p_values["ANOVA"] = p_value_ANOVA
 
     #one-sample t-test
-    t_statistic, p_value_t = stats.ttest_1samp(q_diffs_max_action, q_diff_mean)
+    t_statistic, p_value_t = stats.ttest_1samp(q_diffs_max_action, q_diff_mean, 
+                                               alternative = 'greater')
     p_values["t-test"] = p_value_t
 
     return p_values
